@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Color Classification System</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 40px;
+            transition: background-color 0.5s ease;
+        }
+
+        #webcam-container {
+            margin-top: 20px;
+            z-index: 1;
+            position: relative;
+        }
+
+        #label-container {
+            font-size: 24px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        #confidence-bar {
+            width: 300px;
+            height: 20px;
+            background: #ddd;
+            margin: 20px auto;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            z-index: 2;
+        }
+
+        #confidence-fill {
+            height: 100%;
+            width: 0%;
+            background: #4caf50;
+            transition: width 0.2s linear;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Color Classification System</h1>
+
+    <button id="toggle-btn" onclick="toggleCamera()">Start Camera</button>
+
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+
+    <div id="confidence-bar">
+        <div id="confidence-fill"></div>
+    </div>
+
+    <script>
+        const URL = "https://teachablemachine.withgoogle.com/models/lmiAjxgNF/";
+
+        let model, webcam;
+        let cameraRunning = false;
+        let loopStarted = false;
+
+        async function toggleCamera() {
+            if (!cameraRunning) {
+                await init();
+                cameraRunning = true;
+                document.getElementById("toggle-btn").innerText = "Stop Camera";
+
+                if (!loopStarted) {
+                    loopStarted = true;
+                    window.requestAnimationFrame(loop);
+                }
+            } else {
+                webcam.stop();
+                cameraRunning = false;
+                document.getElementById("toggle-btn").innerText = "Start Camera";
+            }
+        }
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            if (!model) {
+                model = await tmImage.load(modelURL, metadataURL);
+            }
+
+            if (!webcam) {
+                webcam = new tmImage.Webcam(200, 200, true);
+                await webcam.setup({ facingMode: "user" });
+                await webcam.play();
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+            } else {
+                await webcam.play();
+            }
+        }
+
+        async function loop() {
+            if (cameraRunning) {
+                webcam.update();
+                await predict();
+            }
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+
+            let result = "";
+
+            for (let i = 0; i < prediction.length; i++) {
+                const prob = prediction[i].probability;
+
+                if (prob > 0.8) {
+                    const color = prediction[i].className.toLowerCase();
+                    document.body.style.backgroundColor = color;
+
+                    result =
+                        prediction[i].className +
+                        " : " +
+                        (prob * 100).toFixed(2) +
+                        "%";
+
+                    document.getElementById("confidence-fill").style.width =
+                        (prob * 100) + "%";
+                }
+            }
+
+            document.getElementById("label-container").innerHTML = result;
+        }
+    </script>
+
+</body>
+</html>
